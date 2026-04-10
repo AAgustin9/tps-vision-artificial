@@ -1,0 +1,470 @@
+[
+  {
+    "image": "circle.jpeg",
+    "detections": [
+      {
+        "label": "circle",
+        "confidence": 1.0,
+        "bounding_box": {
+          "x": 30,
+          "y": 24,
+          "width": 102,
+          "height": 100
+        },
+        "contour_area": 7916.0,
+        "perimeter": 332.05,
+        "hu_moments": [
+          0.798124,
+          5.578254,
+          8.305415,
+          12.0,
+          -12.0,
+          -12.0,
+          12.0
+        ]
+      }
+    ]
+  },
+  {
+    "image": "circle_01.jpeg",
+    "detections": [
+      {
+        "label": "circle",
+        "confidence": 1.0,
+        "bounding_box": {
+          "x": 75,
+          "y": 144,
+          "width": 187,
+          "height": 187
+        },
+        "contour_area": 27460.0,
+        "perimeter": 617.47,
+        "hu_moments": [
+          0.798169,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      }
+    ]
+  },
+  {
+    "image": "circle_02.jpeg",
+    "detections": [
+      {
+        "label": "circle",
+        "confidence": 1.0,
+        "bounding_box": {
+          "x": 134,
+          "y": 110,
+          "width": 139,
+          "height": 139
+        },
+        "contour_area": 15172.0,
+        "perimeter": 458.27,
+        "hu_moments": [
+          0.798159,
+          12.0,
+          12.0,
+          12.0,
+          12.0,
+          -12.0,
+          -12.0
+        ]
+      }
+    ]
+  },
+  {
+    "image": "circle_03.jpeg",
+    "detections": [
+      {
+        "label": "circle",
+        "confidence": 1.0,
+        "bounding_box": {
+          "x": 144,
+          "y": 151,
+          "width": 175,
+          "height": 175
+        },
+        "contour_area": 24060.0,
+        "perimeter": 578.84,
+        "hu_moments": [
+          0.798167,
+          0.0,
+          12.0,
+          12.0,
+          12.0,
+          0.0,
+          -12.0
+        ]
+      }
+    ]
+  },
+  {
+    "image": "circle_04.jpeg",
+    "detections": [
+      {
+        "label": "circle",
+        "confidence": 1.0,
+        "bounding_box": {
+          "x": 103,
+          "y": 91,
+          "width": 137,
+          "height": 137
+        },
+        "contour_area": 14750.0,
+        "perimeter": 452.62,
+        "hu_moments": [
+          0.798159,
+          0.0,
+          12.0,
+          12.0,
+          -12.0,
+          0.0,
+          -12.0
+        ]
+      }
+    ]
+  },
+  {
+    "image": "circle_05.jpeg",
+    "detections": [
+      {
+        "label": "circle",
+        "confidence": 1.0,
+        "bounding_box": {
+          "x": 119,
+          "y": 138,
+          "width": 167,
+          "height": 167
+        },
+        "contour_area": 21892.0,
+        "perimeter": 551.53,
+        "hu_moments": [
+          0.798168,
+          0.0,
+          12.0,
+          12.0,
+          -12.0,
+          0.0,
+          12.0
+        ]
+      }
+    ]
+  },
+  {
+    "image": "rectangle.jpeg",
+    "detections": [
+      {
+        "label": "rectangle_outline",
+        "confidence": 1.0,
+        "bounding_box": {
+          "x": 36,
+          "y": 40,
+          "width": 134,
+          "height": 68
+        },
+        "contour_area": 8905.0,
+        "perimeter": 397.66,
+        "hu_moments": [
+          0.683461,
+          1.81765,
+          12.0,
+          12.0,
+          12.0,
+          12.0,
+          -12.0
+        ]
+      }
+    ]
+  },
+  {
+    "image": "rectangle_outline_01.jpeg",
+    "detections": [
+      {
+        "label": "rectangle_outline",
+        "confidence": 1.0,
+        "bounding_box": {
+          "x": 120,
+          "y": 91,
+          "width": 277,
+          "height": 267
+        },
+        "contour_area": 39531.0,
+        "perimeter": 832.11,
+        "hu_moments": [
+          0.770117,
+          2.942003,
+          12.0,
+          12.0,
+          12.0,
+          -12.0,
+          12.0
+        ]
+      }
+    ]
+  },
+  {
+    "image": "rectangle_outline_02.jpeg",
+    "detections": [
+      {
+        "label": "rectangle_outline",
+        "confidence": 1.0,
+        "bounding_box": {
+          "x": 39,
+          "y": 158,
+          "width": 243,
+          "height": 199
+        },
+        "contour_area": 28314.0,
+        "perimeter": 732.38,
+        "hu_moments": [
+          0.732903,
+          2.183222,
+          12.0,
+          12.0,
+          12.0,
+          12.0,
+          -12.0
+        ]
+      }
+    ]
+  },
+  {
+    "image": "rectangle_outline_03.jpeg",
+    "detections": [
+      {
+        "label": "rectangle_outline",
+        "confidence": 1.0,
+        "bounding_box": {
+          "x": 89,
+          "y": 121,
+          "width": 173,
+          "height": 185
+        },
+        "contour_area": 26492.0,
+        "perimeter": 669.82,
+        "hu_moments": [
+          0.777293,
+          3.82138,
+          12.0,
+          12.0,
+          12.0,
+          12.0,
+          12.0
+        ]
+      }
+    ]
+  },
+  {
+    "image": "rectangle_outline_04.jpeg",
+    "detections": [
+      {
+        "label": "rectangle_outline",
+        "confidence": 1.0,
+        "bounding_box": {
+          "x": 123,
+          "y": 122,
+          "width": 239,
+          "height": 167
+        },
+        "contour_area": 24358.0,
+        "perimeter": 702.56,
+        "hu_moments": [
+          0.687554,
+          1.841597,
+          12.0,
+          12.0,
+          12.0,
+          -12.0,
+          -12.0
+        ]
+      }
+    ]
+  },
+  {
+    "image": "rectangle_outline_05.jpeg",
+    "detections": [
+      {
+        "label": "rectangle_outline",
+        "confidence": 1.0,
+        "bounding_box": {
+          "x": 116,
+          "y": 161,
+          "width": 213,
+          "height": 171
+        },
+        "contour_area": 27081.0,
+        "perimeter": 690.19,
+        "hu_moments": [
+          0.757972,
+          2.552409,
+          12.0,
+          12.0,
+          12.0,
+          -12.0,
+          -12.0
+        ]
+      }
+    ]
+  },
+  {
+    "image": "star.png",
+    "detections": [
+      {
+        "label": "star",
+        "confidence": 1.0,
+        "bounding_box": {
+          "x": 12,
+          "y": 10,
+          "width": 130,
+          "height": 127
+        },
+        "contour_area": 6023.0,
+        "perimeter": 518.42,
+        "hu_moments": [
+          0.678456,
+          4.15945,
+          4.626317,
+          6.094285,
+          -11.479953,
+          8.186576,
+          11.933386
+        ]
+      }
+    ]
+  },
+  {
+    "image": "star_01.png",
+    "detections": [
+      {
+        "label": "star",
+        "confidence": 1.0,
+        "bounding_box": {
+          "x": 143,
+          "y": 125,
+          "width": 179,
+          "height": 182
+        },
+        "contour_area": 11886.0,
+        "perimeter": 705.41,
+        "hu_moments": [
+          0.695212,
+          7.340892,
+          6.882502,
+          6.963305,
+          -12.0,
+          -10.699605,
+          12.0
+        ]
+      }
+    ]
+  },
+  {
+    "image": "star_02.png",
+    "detections": [
+      {
+        "label": "star",
+        "confidence": 1.0,
+        "bounding_box": {
+          "x": 93,
+          "y": 146,
+          "width": 197,
+          "height": 199
+        },
+        "contour_area": 13081.5,
+        "perimeter": 798.57,
+        "hu_moments": [
+          0.672421,
+          5.646667,
+          6.022111,
+          7.127085,
+          12.0,
+          -10.32086,
+          -12.0
+        ]
+      }
+    ]
+  },
+  {
+    "image": "star_03.png",
+    "detections": [
+      {
+        "label": "star",
+        "confidence": 1.0,
+        "bounding_box": {
+          "x": 111,
+          "y": 135,
+          "width": 221,
+          "height": 213
+        },
+        "contour_area": 18947.5,
+        "perimeter": 829.05,
+        "hu_moments": [
+          0.715412,
+          6.609213,
+          7.472535,
+          7.942442,
+          -12.0,
+          11.247049,
+          12.0
+        ]
+      }
+    ]
+  },
+  {
+    "image": "star_04.png",
+    "detections": [
+      {
+        "label": "star",
+        "confidence": 1.0,
+        "bounding_box": {
+          "x": 175,
+          "y": 135,
+          "width": 143,
+          "height": 149
+        },
+        "contour_area": 7374.5,
+        "perimeter": 584.94,
+        "hu_moments": [
+          0.676059,
+          5.649365,
+          6.752411,
+          6.813149,
+          -12.0,
+          -9.646798,
+          -12.0
+        ]
+      }
+    ]
+  },
+  {
+    "image": "star_05.png",
+    "detections": [
+      {
+        "label": "star",
+        "confidence": 1.0,
+        "bounding_box": {
+          "x": 109,
+          "y": 130,
+          "width": 194,
+          "height": 195
+        },
+        "contour_area": 10913.5,
+        "perimeter": 815.39,
+        "hu_moments": [
+          0.633273,
+          5.881637,
+          5.98724,
+          7.039157,
+          12.0,
+          10.965229,
+          12.0
+        ]
+      }
+    ]
+  }
+]

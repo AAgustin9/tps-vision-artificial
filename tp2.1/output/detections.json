@@ -1,0 +1,20 @@
+[
+  {
+    "image": "circle.jpeg",
+    "detections": [
+      {
+        "label": "circle",
+        "confidence": 1.0,
+        "distance": 0.0,
+        "bounding_box": {
+          "x": 30,
+          "y": 24,
+          "width": 102,
+          "height": 100
+        },
+        "contour_area": 7833.0,
+        "perimeter": 332.05
+      }
+    ]
+  }
+]
