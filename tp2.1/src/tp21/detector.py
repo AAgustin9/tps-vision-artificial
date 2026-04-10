@@ -67,16 +67,20 @@ class DetectionParams:
 
 
 def is_supported_image(path: Path) -> bool:
+    # Returns True if the file extension is one of the supported image formats.
     return path.suffix.lower() in SUPPORTED_EXTENSIONS
 
 
 def iter_images(input_dir: Path) -> Iterable[Path]:
+    # Yields all supported image files in input_dir, sorted alphabetically.
     for path in sorted(input_dir.iterdir()):
         if path.is_file() and is_supported_image(path):
             yield path
 
 
 def load_image(image_path: Path) -> np.ndarray:
+    # Reads an image from disk and returns it as a BGR numpy array.
+    # Raises ValueError if the file cannot be read.
     image = cv2.imread(str(image_path))
     if image is None:
         raise ValueError(f"No se pudo leer la imagen: {image_path}")
@@ -84,6 +88,8 @@ def load_image(image_path: Path) -> np.ndarray:
 
 
 def normalize_label(path: Path) -> str:
+    # Derives a shape label from the image filename.
+    # "rectangle" is normalized to "rectangle_outline" to match the reference naming convention.
     stem = path.stem.lower().replace(" ", "_")
     if stem == "rectangle":
         return "rectangle_outline"
@@ -96,6 +102,9 @@ def preprocess_image(
     threshold_value: int,
     morph_kernel_size: int,
 ) -> np.ndarray:
+    # Converts the image to grayscale, applies Gaussian blur, then binary inverse threshold,
+    # and finally morphological close+open to remove noise and fill contour gaps.
+    # Returns a clean binary mask ready for contour detection.
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     blurred = cv2.GaussianBlur(gray, (5, 5), 0)
     _, binary = cv2.threshold(
@@ -114,6 +123,7 @@ def preprocess_image(
 
 
 def find_external_contours(binary_mask: np.ndarray) -> list[np.ndarray]:
+    # Finds only the outermost contours in a binary mask (ignores nested/inner contours).
     contours, _ = cv2.findContours(
         binary_mask,
         cv2.RETR_EXTERNAL,
@@ -129,6 +139,8 @@ def extract_primary_contour(
     morph_kernel_size: int = 3,
     min_area: int = 50,
 ) -> np.ndarray:
+    # Preprocesses a reference image and returns the single largest contour found.
+    # Used to extract the shape contour from a reference image file.
     binary = preprocess_image(
         image,
         threshold_value=threshold_value,
@@ -142,6 +154,8 @@ def extract_primary_contour(
 
 
 def load_reference_shapes(input_dir: Path) -> list[ReferenceShape]:
+    # Loads all reference images from input_dir, extracts their primary contour,
+    # and returns a list of ReferenceShape objects used for matchShapes classification.
     if not input_dir.exists():
         raise FileNotFoundError(f"La carpeta de referencias no existe: {input_dir}")
 
@@ -170,6 +184,9 @@ def classify_contour(
     *,
     match_threshold: float,
 ) -> tuple[str, float, float]:
+    # Compares a detected contour against all reference shapes using cv2.matchShapes (Hu moments distance).
+    # Returns the label, confidence score, and distance of the best match.
+    # If the best distance exceeds match_threshold, returns "unknown".
     best_reference: ReferenceShape | None = None
     best_distance = float("inf")
 
@@ -197,6 +214,9 @@ def detect_shapes(
     references: list[ReferenceShape],
     params: DetectionParams,
 ) -> tuple[list[Detection], np.ndarray]:
+    # Full detection pipeline for a single frame: preprocesses the image, finds contours,
+    # filters by minimum area, classifies each one against the references, and returns
+    # a sorted list of Detection objects and the binary mask.
     binary = preprocess_image(
         image,
         threshold_value=params.threshold_value,
@@ -240,6 +260,8 @@ def process_image(
     references: list[ReferenceShape],
     params: DetectionParams,
 ) -> ProcessedImage:
+    # Loads an image from disk, runs the full detection pipeline on it,
+    # draws the annotated result, and returns a ProcessedImage with all outputs.
     from .drawing import draw_detections
 
     image = load_image(image_path)

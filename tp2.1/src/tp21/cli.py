@@ -20,6 +20,7 @@ MASK_WINDOW = "Mascara binaria"
 
 
 def build_parser() -> argparse.ArgumentParser:
+    # Builds and returns the CLI argument parser with all supported flags.
     parser = argparse.ArgumentParser(
         description="Deteccion y clasificacion de formas con webcam en tiempo real."
     )
@@ -55,6 +56,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def build_default_params() -> DetectionParams:
+    # Returns a DetectionParams instance with sensible defaults for webcam/image mode.
     return DetectionParams(
         threshold_value=200,
         min_area=50,
@@ -64,6 +66,8 @@ def build_default_params() -> DetectionParams:
 
 
 def resolve_image_inputs(image: Path | None, input_dir: Path) -> list[Path]:
+    # If a single image path was provided returns it as a one-element list,
+    # otherwise returns all supported images found in input_dir.
     if image is not None:
         if not image.exists():
             raise FileNotFoundError(f"La imagen no existe: {image}")
@@ -78,6 +82,8 @@ def run_image_mode(
     output_dir: Path,
     save_masks: bool,
 ) -> int:
+    # Processes images from disk (single file or full input_dir), saves annotated results
+    # and a detections.json to output_dir. Reference images are excluded from processing.
     references = load_reference_shapes(input_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     images = resolve_image_inputs(image, input_dir)
@@ -107,6 +113,8 @@ def run_image_mode(
 
 
 def create_trackbars(params: DetectionParams) -> None:
+    # Creates the OpenCV control window with trackbars for threshold, kernel size,
+    # minimum area, and match threshold, initialized to the given params values.
     cv2.namedWindow(CONTROL_WINDOW, cv2.WINDOW_NORMAL)
     cv2.resizeWindow(CONTROL_WINDOW, 520, 240)
     cv2.createTrackbar("Threshold", CONTROL_WINDOW, params.threshold_value, 255, lambda _: None)
@@ -122,6 +130,8 @@ def create_trackbars(params: DetectionParams) -> None:
 
 
 def read_params_from_trackbars() -> DetectionParams:
+    # Reads current trackbar positions and returns a DetectionParams with those values.
+    # Called every frame so parameter changes take effect in real time.
     threshold_value = cv2.getTrackbarPos("Threshold", CONTROL_WINDOW)
     kernel = cv2.getTrackbarPos("Kernel", CONTROL_WINDOW)
     min_area = cv2.getTrackbarPos("Min area", CONTROL_WINDOW)
@@ -135,6 +145,8 @@ def read_params_from_trackbars() -> DetectionParams:
 
 
 def run_webcam_mode(input_dir: Path, camera_index: int) -> int:
+    # Opens the webcam, runs the detection+classification loop in real time,
+    # and displays the annotated frame and binary mask. Press q to quit, s to save a frame.
     references = load_reference_shapes(input_dir)
     params = build_default_params()
     create_trackbars(params)
@@ -212,6 +224,7 @@ def run_webcam_mode(input_dir: Path, camera_index: int) -> int:
 
 
 def main() -> int:
+    # Entry point: parses CLI arguments and dispatches to image mode or webcam mode.
     parser = build_parser()
     args = parser.parse_args()
 

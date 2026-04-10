@@ -15,6 +15,8 @@ COLORS = {
 
 
 def draw_detections(image: np.ndarray, detections: list[Detection]) -> np.ndarray:
+    # Draws a colored bounding box and label+confidence caption over each detection.
+    # Colors are looked up by label name; unknown shapes get red. Returns a copy of the image.
     canvas = image.copy()
     for detection in detections:
         box = detection.bounding_box
