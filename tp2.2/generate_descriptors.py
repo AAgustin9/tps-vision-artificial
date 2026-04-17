@@ -1,26 +1,24 @@
 """
-Generador de descriptores (tp2.2).
+Capturador de imagenes de entrenamiento (tp2.2).
 
-Abre la webcam, detecta contornos y al presionar ESPACIO imprime en
-terminal los invariantes de Hu del contorno más grande detectado.
+Abre la webcam. Selecciona la clase con 1/2/3, luego presiona
+ESPACIO para guardar el frame actual en data/shapes/<label>/.
 
-Workflow sugerido:
-  1. Mostrar un objeto frente a la cámara.
-  2. Presionar ESPACIO para capturar sus invariantes de Hu.
-  3. Copiar los valores impresos en la terminal y pegarlos en
-     data/hu_moments.csv junto con la etiqueta correspondiente.
+Workflow:
+  1. Mostrar un objeto frente a la camara.
+  2. Presionar 1, 2 o 3 para seleccionar la clase.
+  3. Presionar ESPACIO para guardar el frame.
   4. Repetir para todas las formas deseadas.
-
-Diccionario de etiquetas (labels.py):
-  1 = circle
-  2 = rectangle
-  3 = star
+  5. Ejecutar create_dataset.py y train.py.
 
 Teclas:
-  ESPACIO - imprimir invariantes de Hu del contorno mas grande
+  1/2/3   - seleccionar clase (circle/rectangle/star)
+  ESPACIO - guardar frame en data/shapes/<label>/
   q       - salir
 """
 from __future__ import annotations
+
+from pathlib import Path
 
 import cv2
 import numpy as np
@@ -33,13 +31,13 @@ MIN_AREA = 400
 MORPH_KERNEL_SIZE = 3
 
 CONTROL_WINDOW = "Controles"
-VIDEO_WINDOW = "Generador de descriptores"
+VIDEO_WINDOW = "Capturador de entrenamiento"
 MASK_WINDOW = "Mascara binaria"
+
+SHAPES_DIR = Path("data/shapes")
 
 
 def preprocess(frame: np.ndarray, threshold: int, kernel_size: int) -> np.ndarray:
-    # Converts frame to grayscale, blurs it, applies inverse binary threshold,
-    # and runs morphological close+open to produce a clean binary mask.
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     blurred = cv2.GaussianBlur(gray, (5, 5), 0)
     _, binary = cv2.threshold(blurred, threshold, 255, cv2.THRESH_BINARY_INV)
@@ -51,34 +49,32 @@ def preprocess(frame: np.ndarray, threshold: int, kernel_size: int) -> np.ndarra
 
 
 def find_contours(binary: np.ndarray, min_area: int) -> list[np.ndarray]:
-    # Returns all external contours in the binary mask whose area is at least min_area.
     contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     return [c for c in contours if cv2.contourArea(c) >= min_area]
 
 
-def hu_moments(contour: np.ndarray) -> list[float]:
-    # Computes the 7 Hu moment invariants for a contour and returns them as a flat list.
-    moments = cv2.moments(contour)
-    hu = cv2.HuMoments(moments).flatten()
-    return hu.tolist()
+def count_saved(label: str) -> int:
+    d = SHAPES_DIR / label
+    if not d.exists():
+        return 0
+    return len(list(d.glob("*.png")))
 
 
 def main() -> None:
-    # Opens the webcam and runs the descriptor capture loop.
-    # Each time SPACE is pressed, prints the 7 Hu invariants of the largest detected contour
-    # in CSV format so they can be copied into data/hu_moments.csv with the correct label.
     cap = cv2.VideoCapture(0)
     if not cap.isOpened():
         raise RuntimeError("No se pudo abrir la webcam.")
 
     print("=" * 60)
-    print("Generador de descriptores activo.")
-    print("Diccionario de etiquetas:")
+    print("Capturador de imagenes de entrenamiento.")
+    print("Clases disponibles:")
     for k, v in LABELS.items():
         print(f"  {k}: {v}")
     print()
-    print("ESPACIO: capturar invariantes de Hu | q: salir")
+    print("1/2/3: seleccionar clase | ESPACIO: guardar | q: salir")
     print("=" * 60)
+
+    active_label_id: int = 1
 
     cv2.namedWindow(CONTROL_WINDOW, cv2.WINDOW_NORMAL)
     cv2.resizeWindow(CONTROL_WINDOW, 440, 160)
@@ -107,13 +103,16 @@ def main() -> None:
                 x, y, w, h = cv2.boundingRect(contour)
                 cv2.rectangle(canvas, (x, y), (x + w, y + h), (0, 255, 0), 2)
 
+            active_name = LABELS.get(active_label_id, "?")
+            saved = count_saved(active_name)
             cv2.putText(
                 canvas,
-                f"Contornos: {len(contours)} | ESPACIO: capturar | q: salir",
+                f"Clase: {active_name} ({saved} guardadas) | "
+                f"1/2/3: cambiar | ESPACIO: guardar | q: salir",
                 (10, 28),
                 cv2.FONT_HERSHEY_SIMPLEX,
-                0.6,
-                (255, 255, 255),
+                0.55,
+                (0, 200, 255),
                 2,
                 cv2.LINE_AA,
             )
@@ -124,14 +123,17 @@ def main() -> None:
             key = cv2.waitKey(1) & 0xFF
             if key == ord("q"):
                 break
+            if key in (ord("1"), ord("2"), ord("3")):
+                active_label_id = key - ord("0")
+                print(f"Clase activa: {LABELS[active_label_id]}")
             if key == ord(" "):
-                if contours:
-                    largest = max(contours, key=cv2.contourArea)
-                    hu = hu_moments(largest)
-                    print(f"{hu[0]:.8e},{hu[1]:.8e},{hu[2]:.8e},{hu[3]:.8e},"
-                          f"{hu[4]:.8e},{hu[5]:.8e},{hu[6]:.8e},<ETIQUETA>")
-                else:
-                    print("No se detecto ningun contorno.")
+                label_name = LABELS[active_label_id]
+                out_dir = SHAPES_DIR / label_name
+                out_dir.mkdir(parents=True, exist_ok=True)
+                idx = count_saved(label_name)
+                out_path = out_dir / f"{label_name}_{idx:03d}.png"
+                cv2.imwrite(str(out_path), frame)
+                print(f"Guardado: {out_path}")
     finally:
         cap.release()
         cv2.destroyAllWindows()

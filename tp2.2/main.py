@@ -14,6 +14,7 @@ Teclas:
 """
 from __future__ import annotations
 
+import math
 from pathlib import Path
 
 import cv2
@@ -61,10 +62,15 @@ def find_contours(binary: np.ndarray, min_area: int) -> list[np.ndarray]:
 
 
 def compute_hu(contour: np.ndarray) -> list[float]:
-    # Computes the 7 Hu moment invariants for a contour and returns them as a flat list.
     moments = cv2.moments(contour)
     hu = cv2.HuMoments(moments).flatten()
-    return hu.tolist()
+    result = []
+    for v in hu:
+        if v == 0.0:
+            result.append(0.0)
+        else:
+            result.append(-math.copysign(1.0, v) * math.log10(abs(v)))
+    return result
 
 
 def draw_detection(

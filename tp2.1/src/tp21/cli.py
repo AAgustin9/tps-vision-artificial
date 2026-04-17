@@ -82,7 +82,7 @@ def run_image_mode(
     output_dir: Path,
     save_masks: bool,
 ) -> int:
-    # Processes images from disk (single file or full input_dir), saves annotated results
+    # Processes images , saves annotated results
     # and a detections.json to output_dir. Reference images are excluded from processing.
     references = load_reference_shapes(input_dir)
     output_dir.mkdir(parents=True, exist_ok=True)

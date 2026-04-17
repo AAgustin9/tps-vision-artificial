@@ -1,9 +1,9 @@
 """
-Generador de dataset sintetico (tp2.2).
+Generador de dataset (tp2.2).
 
-Dibuja formas con OpenCV bajo diferentes posiciones, escalas y
-rotaciones, extrae sus invariantes de Hu y guarda el resultado en
-data/hu_moments.csv.
+Lee imagenes de data/shapes/<label>/, aplica aumentacion
+(rotaciones x escalas) y extrae invariantes de Hu con transformacion
+logaritmica. Guarda el resultado en data/hu_moments.csv.
 
 Ejecucion:
     python create_dataset.py
@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import csv
 import math
-import random
 from pathlib import Path
 
 import cv2
@@ -21,137 +20,119 @@ import numpy as np
 from labels import LABELS
 
 
-IMG_SIZE = 500
-N_SAMPLES_PER_CLASS = 40
-RANDOM_SEED = 42
+SHAPES_DIR = Path("data/shapes")
+CSV_PATH = Path("data/hu_moments.csv")
 
-random.seed(RANDOM_SEED)
-np.random.seed(RANDOM_SEED)
+ROTATION_ANGLES = (0, -20, 20)
+SCALE_FACTORS = (1.0, 0.85)
 
 
-def hu_from_contour(contour: np.ndarray) -> list[float]:
-    # Computes the 7 Hu moment invariants for a contour and returns them as a flat list.
+def augment(img: np.ndarray) -> list[np.ndarray]:
+    h, w = img.shape[:2]
+    center = (w / 2.0, h / 2.0)
+    variants = []
+    for angle in ROTATION_ANGLES:
+        for scale in SCALE_FACTORS:
+            M = cv2.getRotationMatrix2D(center, angle, scale)
+            warped = cv2.warpAffine(
+                img, M, (w, h),
+                flags=cv2.INTER_LINEAR,
+                borderMode=cv2.BORDER_CONSTANT,
+                borderValue=255,
+            )
+            variants.append(warped)
+    return variants
+
+
+def log_hu(contour: np.ndarray) -> list[float] | None:
     m = cv2.moments(contour)
     hu = cv2.HuMoments(m).flatten()
-    return hu.tolist()
+    result = []
+    for v in hu:
+        if v == 0.0:
+            result.append(0.0)
+        else:
+            result.append(-math.copysign(1.0, v) * math.log10(abs(v)))
+    return result
 
 
 def extract_largest_contour(binary: np.ndarray) -> np.ndarray | None:
-    # Finds all external contours in a binary mask and returns the largest one by area,
-    # or None if no contours are found.
     contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     if not contours:
         return None
     return max(contours, key=cv2.contourArea)
 
 
-def random_position(margin: int) -> tuple[int, int]:
-    # Returns a random (x, y) position within the image bounds, keeping at least margin pixels from the edges.
-    lo, hi = margin, IMG_SIZE - margin
-    return random.randint(lo, hi), random.randint(lo, hi)
-
-
-def generate_circle_samples(n: int) -> list[list[float]]:
-    # Generates n samples for the circle class by drawing filled circles at random
-    # positions and radii on a blank image and computing their Hu moments.
-    samples = []
-    while len(samples) < n:
-        img = np.zeros((IMG_SIZE, IMG_SIZE), dtype=np.uint8)
-        r = random.randint(40, 110)
-        cx, cy = random_position(r + 5)
-        cv2.circle(img, (cx, cy), r, 255, -1)
-        contour = extract_largest_contour(img)
-        if contour is not None:
-            samples.append(hu_from_contour(contour))
-    return samples
-
-
-def generate_rectangle_samples(n: int) -> list[list[float]]:
-    # Generates n samples for the rectangle class by drawing filled rectangles with
-    # random size, position, and rotation angle, then computing their Hu moments.
-    samples = []
-    while len(samples) < n:
-        img = np.zeros((IMG_SIZE, IMG_SIZE), dtype=np.uint8)
-        w = random.randint(60, 180)
-        h = random.randint(40, 130)
-        cx, cy = random_position(max(w, h) // 2 + 10)
-        x1, y1 = cx - w // 2, cy - h // 2
-        cv2.rectangle(img, (x1, y1), (x1 + w, y1 + h), 255, -1)
-        # random rotation
-        angle = random.uniform(0, 180)
-        M = cv2.getRotationMatrix2D((float(cx), float(cy)), angle, 1.0)
-        img = cv2.warpAffine(img, M, (IMG_SIZE, IMG_SIZE))
-        contour = extract_largest_contour(img)
-        if contour is not None and cv2.contourArea(contour) > 200:
-            samples.append(hu_from_contour(contour))
-    return samples
-
-
-def draw_star(
-    img: np.ndarray,
-    cx: int,
-    cy: int,
-    r_outer: int,
-    n_points: int = 5,
-    angle_offset: float = 0.0,
-) -> None:
-    # Draws a filled n-pointed star centered at (cx, cy) with the given outer radius.
-    # The inner radius is 40% of the outer. angle_offset rotates the whole star.
-    r_inner = r_outer * 0.4
-    pts = []
-    for i in range(2 * n_points):
-        angle = math.pi / n_points * i + angle_offset - math.pi / 2
-        r = r_outer if i % 2 == 0 else r_inner
-        pts.append((int(cx + r * math.cos(angle)), int(cy + r * math.sin(angle))))
-    cv2.fillPoly(img, [np.array(pts, dtype=np.int32)], 255)
-
-
-def generate_star_samples(n: int) -> list[list[float]]:
-    # Generates n samples for the star class by drawing 5-pointed stars at random
-    # positions, sizes, and rotation angles, then computing their Hu moments.
-    samples = []
-    while len(samples) < n:
-        img = np.zeros((IMG_SIZE, IMG_SIZE), dtype=np.uint8)
-        r = random.randint(50, 120)
-        cx, cy = random_position(r + 10)
-        angle_offset = random.uniform(0, 2 * math.pi)
-        draw_star(img, cx, cy, r, n_points=5, angle_offset=angle_offset)
-        contour = extract_largest_contour(img)
-        if contour is not None and cv2.contourArea(contour) > 200:
-            samples.append(hu_from_contour(contour))
-    return samples
+def hu_from_image(img: np.ndarray) -> list[float] | None:
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if img.ndim == 3 else img
+    binary = cv2.adaptiveThreshold(
+        gray, 255,
+        cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+        cv2.THRESH_BINARY, 67, 2,
+    )
+    binary = 255 - binary
+    kernel = np.ones((3, 3), dtype=np.uint8)
+    binary = cv2.morphologyEx(binary, cv2.MORPH_ERODE, kernel)
+    contour = extract_largest_contour(binary)
+    if contour is None or cv2.contourArea(contour) < 200:
+        return None
+    return log_hu(contour)
 
 
 def main() -> None:
-    # Generates synthetic Hu moment samples for each shape class, shuffles them,
-    # and writes the full dataset to data/hu_moments.csv.
-    data_dir = Path("data")
-    data_dir.mkdir(exist_ok=True)
-    csv_path = data_dir / "hu_moments.csv"
+    NAME_TO_ID = {v: k for k, v in LABELS.items()}
 
-    generators = {
-        1: generate_circle_samples,
-        2: generate_rectangle_samples,
-        3: generate_star_samples,
-    }
+    if not SHAPES_DIR.exists():
+        raise FileNotFoundError(
+            f"Directorio {SHAPES_DIR} no encontrado.\n"
+            "Ejecuta primero: python generate_descriptors.py"
+        )
+
+    labels_found = sorted(
+        d.name for d in SHAPES_DIR.iterdir()
+        if d.is_dir() and not d.name.startswith(".")
+    )
+    if not labels_found:
+        raise ValueError(f"No se encontraron subdirectorios en {SHAPES_DIR}.")
 
     rows: list[list] = []
-    for label_id, generator in generators.items():
-        print(f"Generando muestras para '{LABELS[label_id]}'...")
-        for hu in generator(N_SAMPLES_PER_CLASS):
-            rows.append(hu + [label_id])
+    for label_name in labels_found:
+        label_id = NAME_TO_ID.get(label_name)
+        if label_id is None:
+            print(f"  Advertencia: clase '{label_name}' no esta en labels.py, ignorando.")
+            continue
 
-    random.shuffle(rows)
+        images = list((SHAPES_DIR / label_name).glob("*.png")) + \
+                 list((SHAPES_DIR / label_name).glob("*.jpg")) + \
+                 list((SHAPES_DIR / label_name).glob("*.jpeg"))
+        if not images:
+            print(f"  Advertencia: no hay imagenes en {SHAPES_DIR / label_name}")
+            continue
 
-    with open(csv_path, "w", newline="") as f:
+        count = 0
+        for img_path in images:
+            img = cv2.imread(str(img_path))
+            if img is None:
+                continue
+            for variant in augment(img):
+                hu = hu_from_image(variant)
+                if hu is not None:
+                    rows.append(hu + [label_id])
+                    count += 1
+
+        print(f"  {label_name} (label={label_id}): {count} muestras "
+              f"({len(images)} imagenes x {len(ROTATION_ANGLES) * len(SCALE_FACTORS)} variantes)")
+
+    if not rows:
+        raise ValueError("No se generaron muestras. Verifica las imagenes en data/shapes/.")
+
+    CSV_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with open(CSV_PATH, "w", newline="") as f:
         writer = csv.writer(f)
         writer.writerow(["hu1", "hu2", "hu3", "hu4", "hu5", "hu6", "hu7", "label"])
         writer.writerows(rows)
 
-    print(f"\nDataset guardado: {csv_path} ({len(rows)} muestras total)")
-    for label_id, name in LABELS.items():
-        count = sum(1 for r in rows if r[-1] == label_id)
-        print(f"  {name} (label={label_id}): {count} muestras")
+    print(f"\nDataset guardado: {CSV_PATH} ({len(rows)} muestras total)")
 
 
 if __name__ == "__main__":
