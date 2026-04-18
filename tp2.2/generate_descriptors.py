@@ -38,6 +38,8 @@ SHAPES_DIR = Path("data/shapes")
 
 
 def preprocess(frame: np.ndarray, threshold: int, kernel_size: int) -> np.ndarray:
+    # Converts frame to grayscale, blurs it, applies inverse binary threshold,
+    # and runs morphological close+open to produce a clean binary mask.
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     blurred = cv2.GaussianBlur(gray, (5, 5), 0)
     _, binary = cv2.threshold(blurred, threshold, 255, cv2.THRESH_BINARY_INV)
@@ -49,11 +51,13 @@ def preprocess(frame: np.ndarray, threshold: int, kernel_size: int) -> np.ndarra
 
 
 def find_contours(binary: np.ndarray, min_area: int) -> list[np.ndarray]:
+    # Returns all external contours in the binary mask whose area is at least min_area.
     contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     return [c for c in contours if cv2.contourArea(c) >= min_area]
 
 
 def count_saved(label: str) -> int:
+    # Returns how many PNG images are already saved for a given label (class).
     d = SHAPES_DIR / label
     if not d.exists():
         return 0
@@ -61,6 +65,9 @@ def count_saved(label: str) -> int:
 
 
 def main() -> None:
+    # Opens the webcam so the user can capture training images.
+    # Press 1/2/3 to select the active class (circle/rectangle/star),
+    # SPACE to save the current frame to data/shapes/<label>/, and q to quit.
     cap = cv2.VideoCapture(0)
     if not cap.isOpened():
         raise RuntimeError("No se pudo abrir la webcam.")

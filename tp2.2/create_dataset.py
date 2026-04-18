@@ -28,6 +28,8 @@ SCALE_FACTORS = (1.0, 0.85)
 
 
 def augment(img: np.ndarray) -> list[np.ndarray]:
+    # Generates multiple rotated and scaled versions of an image to artificially
+    # increase the size and variety of the training dataset.
     h, w = img.shape[:2]
     center = (w / 2.0, h / 2.0)
     variants = []
@@ -45,6 +47,8 @@ def augment(img: np.ndarray) -> list[np.ndarray]:
 
 
 def log_hu(contour: np.ndarray) -> list[float] | None:
+    # Computes the 7 Hu moment invariants for a contour and applies a log transform
+    # so features are scale/rotation-invariant and numerically balanced.
     m = cv2.moments(contour)
     hu = cv2.HuMoments(m).flatten()
     result = []
@@ -57,6 +61,8 @@ def log_hu(contour: np.ndarray) -> list[float] | None:
 
 
 def extract_largest_contour(binary: np.ndarray) -> np.ndarray | None:
+    # Finds all external contours in a binary mask and returns the one with the biggest area,
+    # which should correspond to the shape of interest. Returns None if no contours found.
     contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     if not contours:
         return None
@@ -64,6 +70,8 @@ def extract_largest_contour(binary: np.ndarray) -> np.ndarray | None:
 
 
 def hu_from_image(img: np.ndarray) -> list[float] | None:
+    # Full pipeline for a single image: converts to grayscale, binarizes with adaptive threshold,
+    # finds the largest contour, and returns its log-Hu moment vector. Returns None if no valid shape found.
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if img.ndim == 3 else img
     binary = cv2.adaptiveThreshold(
         gray, 255,
@@ -80,6 +88,8 @@ def hu_from_image(img: np.ndarray) -> list[float] | None:
 
 
 def main() -> None:
+    # Reads all training images from data/shapes/<label>/, applies augmentation to each,
+    # extracts log-Hu moments, and writes every sample as a row in data/hu_moments.csv.
     NAME_TO_ID = {v: k for k, v in LABELS.items()}
 
     if not SHAPES_DIR.exists():

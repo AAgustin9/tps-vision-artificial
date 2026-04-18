@@ -62,6 +62,8 @@ def find_contours(binary: np.ndarray, min_area: int) -> list[np.ndarray]:
 
 
 def compute_hu(contour: np.ndarray) -> list[float]:
+    # Computes the 7 Hu moment invariants for a contour, applying a log transform so
+    # values are on a similar scale regardless of shape size or orientation.
     moments = cv2.moments(contour)
     hu = cv2.HuMoments(moments).flatten()
     result = []
