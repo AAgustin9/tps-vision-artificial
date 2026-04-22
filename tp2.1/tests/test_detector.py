@@ -14,6 +14,7 @@ from src.tp21.detector import (
 
 
 def make_canvas(width: int = 420, height: int = 420) -> np.ndarray:
+    # Creates a blank white BGR image of the given dimensions, used as a drawing surface in tests.
     return np.full((height, width, 3), 255, dtype=np.uint8)
 
 
@@ -24,6 +25,8 @@ def draw_star(
     inner_radius: int,
     color: tuple[int, int, int] = (0, 0, 0),
 ) -> None:
+    # Draws a filled 5-pointed star on canvas, alternating between outer and inner radii
+    # to produce the classic star polygon shape used in tests.
     points = []
     center_x, center_y = center
     for index in range(10):
@@ -37,6 +40,8 @@ def draw_star(
 
 
 def write_references(tmp_path: Path) -> Path:
+    # Creates a temporary references directory with one circle, one rectangle outline,
+    # and one star image. Returns the directory path for use in tests.
     refs_dir = tmp_path / "refs"
     refs_dir.mkdir()
 
@@ -56,6 +61,7 @@ def write_references(tmp_path: Path) -> Path:
 
 
 def build_params() -> DetectionParams:
+    # Returns a DetectionParams instance tuned for the synthetic test images.
     return DetectionParams(
         threshold_value=140,
         min_area=200,
@@ -65,6 +71,8 @@ def build_params() -> DetectionParams:
 
 
 def test_load_reference_shapes_uses_file_names_as_labels(tmp_path: Path) -> None:
+    # Verifies that load_reference_shapes derives labels from the image filenames
+    # and applies the "rectangle" → "rectangle_outline" normalization.
     refs_dir = write_references(tmp_path)
     references = load_reference_shapes(refs_dir)
     labels = sorted(reference.label for reference in references)
@@ -72,6 +80,8 @@ def test_load_reference_shapes_uses_file_names_as_labels(tmp_path: Path) -> None
 
 
 def test_detects_shapes_using_reference_matching(tmp_path: Path) -> None:
+    # Draws a circle, rectangle outline, and star on a synthetic frame and verifies
+    # that all three are detected and correctly labeled via matchShapes.
     refs_dir = write_references(tmp_path)
     references = load_reference_shapes(refs_dir)
     params = build_params()
@@ -87,6 +97,8 @@ def test_detects_shapes_using_reference_matching(tmp_path: Path) -> None:
 
 
 def test_marks_unknown_when_distance_is_above_threshold(tmp_path: Path) -> None:
+    # Verifies that a shape with no close reference match (a triangle) is labeled "unknown"
+    # when the match threshold is set very low.
     refs_dir = write_references(tmp_path)
     references = load_reference_shapes(refs_dir)
     params = build_params()

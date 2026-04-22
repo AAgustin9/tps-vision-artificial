@@ -1,0 +1,7 @@
+python3 generate_descriptors.py
+
+python3 create_dataset.py
+
+python3 train.py
+
+python3 main.py
