@@ -39,4 +39,8 @@ Thumbs.db
 
 # Model artifacts (if re-trainable)
 **/*.joblib
+**/*.pt
+**/*.pth
+**/*.h5
+**/*.keras
 
