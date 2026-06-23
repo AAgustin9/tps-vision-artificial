@@ -123,11 +123,13 @@ def main():
     print(f"  Train: {len(X_train)}, Val: {len(X_val)}, Test: {len(X_test)}")
 
     # Build augmentation pipeline for training
+    rotation_layer = tf.keras.layers.RandomRotation(factor=10/360)
+
     def augment(x, y):
         x = tf.image.random_flip_left_right(x)
         x = tf.image.random_brightness(x, max_delta=0.2)
         x = tf.clip_by_value(x, 0.0, 1.0)
-        x = tf.keras.layers.RandomRotation(factor=10/360)(tf.expand_dims(x, 0))[0]
+        x = rotation_layer(tf.expand_dims(x, 0))[0]
         return x, y
 
     BATCH_SIZE = 32
