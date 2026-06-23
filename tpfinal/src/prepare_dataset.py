@@ -1,8 +1,14 @@
 """
 Prepares the PKLot dataset by extracting and sampling balanced space crops.
-PKLot structure: data/pklot_raw/<LotName>/<Condition>/<Date>/<filename>.{jpg,xml}
-Each XML contains <space> elements with bounding box info.
+
+Supports two PKLot layouts:
+1. Original PKLot: data/pklot_raw/<LotName>/<Condition>/<Date>/<filename>.{jpg,xml}
+   Each XML contains <space> elements with bounding box info.
+2. Roboflow COCO export: data/pklot_raw/{train,valid,test}/<images>.jpg plus one
+   _annotations.coco.json per split, with categories named like "space-empty" /
+   "space-occupied".
 """
+import json
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -70,21 +76,98 @@ def parse_xml(xml_path: Path) -> list:
     return spaces
 
 
-def collect_samples(raw_dir: Path) -> dict:
-    """Walk PKLot directory, collect all annotated space references."""
+IMAGE_EXTENSIONS = (".jpg", ".jpeg", ".png")
+
+
+def find_sibling_image(xml_path: Path):
+    """Find the image file matching an XML annotation, case-insensitive, multi-extension."""
+    stem_lower = xml_path.stem.lower()
+    for sibling in xml_path.parent.iterdir():
+        if sibling.stem.lower() == stem_lower and sibling.suffix.lower() in IMAGE_EXTENSIONS:
+            return sibling
+    return None
+
+
+def collect_samples_xml(raw_dir: Path) -> dict:
+    """Walk PKLot directory, collect annotated space references from per-image XML files."""
     samples = {"empty": [], "occupied": []}
 
-    for xml_path in raw_dir.rglob("*.xml"):
-        jpg_path = xml_path.with_suffix(".jpg")
-        if not jpg_path.exists():
+    xml_paths = [p for p in raw_dir.rglob("*") if p.suffix.lower() == ".xml"]
+    for xml_path in xml_paths:
+        img_path = find_sibling_image(xml_path)
+        if img_path is None:
             continue
 
         spaces = parse_xml(xml_path)
         for space in spaces:
             key = "occupied" if space["occupied"] else "empty"
-            samples[key].append((jpg_path, space))
+            samples[key].append((img_path, space))
 
     return samples
+
+
+def classify_category(name: str):
+    """Map a COCO category name to 'empty' or 'occupied', or None if not a space class."""
+    lower = name.lower()
+    if "occ" in lower:
+        return "occupied"
+    if "empty" in lower or "free" in lower or "vacant" in lower:
+        return "empty"
+    return None
+
+
+def collect_samples_coco(raw_dir: Path) -> dict:
+    """Walk a Roboflow COCO export, collect annotated space references."""
+    samples = {"empty": [], "occupied": []}
+
+    for json_path in raw_dir.rglob("*.json"):
+        try:
+            with open(json_path) as f:
+                coco = json.load(f)
+        except (json.JSONDecodeError, OSError):
+            continue
+
+        if not all(k in coco for k in ("images", "annotations", "categories")):
+            continue
+
+        cat_id_to_label = {
+            cat["id"]: classify_category(cat.get("name", ""))
+            for cat in coco["categories"]
+        }
+        image_id_to_path = {
+            img["id"]: json_path.parent / img["file_name"]
+            for img in coco["images"]
+        }
+
+        for ann in coco["annotations"]:
+            label = cat_id_to_label.get(ann["category_id"])
+            if label is None:
+                continue
+
+            img_path = image_id_to_path.get(ann["image_id"])
+            if img_path is None or not img_path.exists():
+                continue
+
+            x, y, w, h = ann["bbox"]
+            xmin, ymin, xmax, ymax = int(x), int(y), int(x + w), int(y + h)
+            if (xmax - xmin) < 5 or (ymax - ymin) < 5:
+                continue
+            if xmin < 0 or ymin < 0:
+                continue
+
+            samples[label].append((img_path, {
+                "xmin": xmin, "ymin": ymin, "xmax": xmax, "ymax": ymax
+            }))
+
+    return samples
+
+
+def collect_samples(raw_dir: Path) -> dict:
+    """Collect annotated space references, trying COCO export first, then PKLot XML."""
+    coco_samples = collect_samples_coco(raw_dir)
+    if coco_samples["empty"] or coco_samples["occupied"]:
+        return coco_samples
+    return collect_samples_xml(raw_dir)
 
 
 def sample_balanced(samples: dict, n_per_class: int = 2000, seed: int = 42) -> dict:
