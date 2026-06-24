@@ -1,7 +1,6 @@
-"""Streamlit app for parking space occupancy detection."""
-import sys
+"""Streamlit app for automatic parking space occupancy detection."""
 import io
-import json
+import sys
 import time
 from pathlib import Path
 
@@ -11,9 +10,8 @@ from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
-from utils import MODEL_PATH, LOT_CONFIG_PATH, ensure_dirs
-from space_selector import load_config, save_config
-from detector import load_lot_config, crop_space, annotate_image
+from utils import MODEL_PATH, ensure_dirs
+from detector import get_model, detect, annotate_image
 
 st.set_page_config(page_title="Parking Space Detector", layout="wide", page_icon="P")
 
@@ -21,11 +19,10 @@ ensure_dirs()
 
 
 @st.cache_resource
-def load_model_cached(threshold: float):
+def load_model_cached():
     if not MODEL_PATH.exists():
         return None
-    from classifier import ParkingClassifier
-    return ParkingClassifier(threshold=threshold)
+    return get_model()
 
 
 # ── Sidebar ────────────────────────────────────────────────────────────────────
@@ -35,55 +32,21 @@ with st.sidebar:
 
     mode = st.radio("Mode", ["Upload Image", "Live Camera"])
 
-    lot_config = load_config()
-    lot_names = list(lot_config.keys())
-    selected_lot = st.selectbox("Lot Configuration", lot_names)
-
     st.markdown("---")
 
-    threshold = st.slider("Confidence Threshold", 0.5, 0.95, 0.70, 0.05)
+    threshold = st.slider("Confidence Threshold", 0.25, 0.95, 0.50, 0.05)
     show_conf = st.toggle("Show Confidence Labels", value=True)
-
-    st.markdown("---")
-    st.subheader("Lot Config")
-
-    new_lot_name = st.text_input("New Lot Name")
-    define_btn = st.button("Define New Lot (CLI)")
-
-    uploaded_config = st.file_uploader("Load Config JSON", type="json")
-    if uploaded_config is not None:
-        new_cfg = json.load(uploaded_config)
-        lot_config.update(new_cfg)
-        save_config(lot_config)
-        st.success("Config loaded and saved.")
-
-    if st.button("Save Current Config"):
-        save_config(lot_config)
-        st.success("Config saved.")
 
 
 # ── Model guard ────────────────────────────────────────────────────────────────
-classifier = load_model_cached(threshold)
-if classifier is None:
+model = load_model_cached()
+if model is None:
     st.error(
         f"**Model not found** at `{MODEL_PATH}`.\n\n"
-        "Please train the model first:\n"
-        "```\npython src/prepare_dataset.py\npython src/train.py\n```"
+        "Train it first (see COLAB_GUIDE.md):\n"
+        "```\npython src/convert_to_yolo.py\npython src/train_yolo.py\n```"
     )
-    if define_btn and new_lot_name:
-        st.info(
-            f"To define lot **{new_lot_name}**, run from terminal:\n\n"
-            f"```\npython src/space_selector.py --image <path> --lot-name {new_lot_name}\n```"
-        )
     st.stop()
-
-
-# ── Define new lot info ────────────────────────────────────────────────────────
-if define_btn and new_lot_name:
-    st.sidebar.warning(
-        f"Run from terminal to define '{new_lot_name}':\n\n"
-        f"`python src/space_selector.py --image <img> --lot-name {new_lot_name}`"
-    )
 
 
 # ── Mode 1: Upload Image ───────────────────────────────────────────────────────
@@ -96,22 +59,13 @@ if mode == "Upload Image":
         img_pil = Image.open(uploaded).convert("RGB")
         img_np = np.array(img_pil)
 
-        try:
-            spaces = load_lot_config(selected_lot)
-        except KeyError as e:
-            st.error(str(e))
+        detections = detect(img_np, threshold)
+
+        if not detections:
+            st.warning("No parking spaces detected in this image.")
             st.stop()
 
-        crops = [crop_space(img_np, s) for s in spaces]
-
-        valid_pairs = [(s, c) for s, c in zip(spaces, crops) if c.size > 0]
-        if not valid_pairs:
-            st.warning("No valid space crops found. Check the lot configuration dimensions.")
-            st.stop()
-
-        v_spaces, v_crops = zip(*valid_pairs)
-        results = classifier.predict_batch(list(v_crops))
-        annotated = annotate_image(img_np.copy(), list(v_spaces), results, show_conf)
+        annotated = annotate_image(img_np.copy(), detections, show_conf)
 
         col1, col2 = st.columns(2)
         with col1:
@@ -121,15 +75,15 @@ if mode == "Upload Image":
             st.subheader("Detected")
             st.image(annotated, use_container_width=True)
 
-        free = sum(1 for label, _ in results if label == "Empty")
-        occupied = len(results) - free
+        free = sum(1 for d in detections if d["label"] == "Empty")
+        occupied = len(detections) - free
 
         st.markdown("---")
         c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Total Spaces", len(results))
+        c1.metric("Total Spaces", len(detections))
         c2.metric("Free", free)
         c3.metric("Occupied", occupied)
-        c4.metric("Occupancy", f"{occupied/len(results)*100:.0f}%" if results else "N/A")
+        c4.metric("Occupancy", f"{occupied/len(detections)*100:.0f}%" if detections else "N/A")
 
         buf = io.BytesIO()
         Image.fromarray(annotated).save(buf, format="PNG")
@@ -163,13 +117,6 @@ elif mode == "Live Camera":
     if st.session_state.camera_running:
         import cv2
 
-        try:
-            spaces = load_lot_config(selected_lot)
-        except KeyError as e:
-            st.error(str(e))
-            st.session_state.camera_running = False
-            st.stop()
-
         cap = cv2.VideoCapture(0)
         if not cap.isOpened():
             st.error("Cannot open camera. Make sure a webcam is connected.")
@@ -182,22 +129,20 @@ elif mode == "Live Camera":
                     break
 
                 frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                crops = [crop_space(frame_rgb, s) for s in spaces]
-                valid_pairs = [(s, c) for s, c in zip(spaces, crops) if c.size > 0]
+                detections = detect(frame_rgb, threshold)
 
-                if valid_pairs:
-                    v_spaces, v_crops = zip(*valid_pairs)
-                    results = classifier.predict_batch(list(v_crops))
-                    annotated = annotate_image(frame_rgb.copy(), list(v_spaces), results, show_conf)
+                if detections:
+                    annotated = annotate_image(frame_rgb.copy(), detections, show_conf)
                     frame_placeholder.image(annotated, channels="RGB", use_container_width=True)
 
-                    free = sum(1 for l, _ in results if l == "Empty")
-                    occ = len(results) - free
+                    free = sum(1 for d in detections if d["label"] == "Empty")
+                    occ = len(detections) - free
                     stats_placeholder.markdown(
-                        f"`Free: {free}` | `Occupied: {occ}` | `Total: {len(results)}`"
+                        f"`Free: {free}` | `Occupied: {occ}` | `Total: {len(detections)}`"
                     )
                 else:
                     frame_placeholder.image(frame_rgb, channels="RGB", use_container_width=True)
+                    stats_placeholder.markdown("No spaces detected in this frame.")
 
                 time.sleep(0.2)  # ~5 FPS
 

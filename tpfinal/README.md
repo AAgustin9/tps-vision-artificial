@@ -1,13 +1,11 @@
 # Parking Space Occupancy Detector
 
-A Computer Vision system for detecting free and occupied parking spaces using transfer learning on the PKLot dataset.
+A Computer Vision system that automatically detects and locates free/occupied parking spaces in an image, using a YOLOv8 object detector trained on the PKLot dataset.
 
 ## Academic Context
 
-- **Dataset**: PKLot — standard CV benchmark with ~700k annotated space images across 3 lots and 3 weather conditions
-- **Model**: MobileNetV2 pretrained on ImageNet (transfer learning)
-- **Why transfer learning**: MobileNetV2 provides robust low-level feature detectors (edges, textures) that generalize to parking space appearance. Training from scratch on 4,000 images would overfit severely
-- **Metrics**: accuracy, precision, recall, F1-score (binary), confusion matrix — reported per class
+- **Dataset**: PKLot — standard CV benchmark with annotated parking space images across 3 lots and 3 weather conditions, here used via a Roboflow COCO export with `space-empty` / `space-occupied` bounding boxes
+- **Model**: YOLOv8n fine-tuned on the PKLot space annotations — localizes spaces and classifies occupancy in a single forward pass, no manual ROI calibration needed
 - **Citation**: De Almeida, P.R.L. et al. "PKLot – A robust dataset for parking lot classification." Expert Systems with Applications, 2015
 
 ## Setup
@@ -18,15 +16,16 @@ pip install -r requirements.txt
 
 ## Dataset Preparation
 
-1. Download PKLot from Kaggle: https://www.kaggle.com/datasets/ammarnassanalhajali/pklot-dataset
-2. Place extracted folder at `data/pklot_raw/`
-3. Run: `python src/prepare_dataset.py`
+1. Get the PKLot Roboflow COCO export and extract it to `data/pklot_raw/` (expects `train/`, `valid/`, `test/` subfolders, each with images + `_annotations.coco.json`)
+2. Convert to YOLO format: `python src/convert_to_yolo.py`
 
 ## Training
 
 ```bash
-python src/train.py
+python src/train_yolo.py
 ```
+
+Training is GPU-intensive — see `COLAB_GUIDE.md` for running it on a free Colab T4.
 
 ## Run the App
 
@@ -34,35 +33,19 @@ python src/train.py
 streamlit run app.py
 ```
 
-## Manual Lot Configuration
-
-To define custom parking space coordinates for a new lot:
-
-```bash
-python src/space_selector.py --image <path_to_image> --lot-name <name>
-```
-
 ## File Structure
 
 ```
 tpfinal/
 ├── data/
-│   ├── pklot_raw/          # PKLot dataset (place here)
-│   └── processed/
-│       ├── empty/          # Cropped empty space images
-│       └── occupied/       # Cropped occupied space images
+│   ├── pklot_raw/          # Roboflow COCO export of PKLot (place here)
+│   └── yolo/                # Converted YOLO-format dataset
 ├── models/
-│   └── parking_classifier.h5
-├── configs/
-│   └── lot_configs.json
+│   └── parking_yolo.pt
 ├── results/
-│   ├── training_curves.png
-│   └── confusion_matrix.png
 ├── src/
-│   ├── prepare_dataset.py
-│   ├── train.py
-│   ├── classifier.py
-│   ├── space_selector.py
+│   ├── convert_to_yolo.py
+│   ├── train_yolo.py
 │   ├── detector.py
 │   └── utils.py
 ├── app.py
@@ -70,56 +53,23 @@ tpfinal/
 └── README.md
 ```
 
-## Model Architecture
-
-- Base: MobileNetV2 (pretrained ImageNet, frozen during phase 1)
-- Head: GlobalAveragePooling2D → Dense(128, ReLU) → Dropout(0.3) → Dense(1, Sigmoid)
-- Phase 2 fine-tuning: last 20 layers of base unfrozen, Adam(1e-5)
-- Input: 64×64 RGB crops
-- Output: probability of "Occupied" class
-
 ## Workflow
 
-### 1. Prepare Dataset
-
-Extract and normalize space crops from the PKLot dataset:
+### 1. Convert Dataset
 
 ```bash
-python src/prepare_dataset.py
+python src/convert_to_yolo.py
 ```
-
-This creates balanced train/val/test splits with ~2000 empty and ~2000 occupied crops.
 
 ### 2. Train Model
 
-Train the binary classifier with transfer learning:
-
 ```bash
-python src/train.py
+python src/train_yolo.py
 ```
 
-The model is trained in two phases:
-- **Phase 1**: Fine-tune head only (30 epochs, base frozen)
-- **Phase 2**: Unfreeze last 20 base layers and fine-tune (10 epochs)
+Fine-tunes YOLOv8n for up to 50 epochs (early stopping on validation loss). Saves the best weights to `models/parking_yolo.pt` and reports mAP50/mAP50-95 on the test split.
 
-Evaluation metrics and confusion matrix are saved to `results/`.
-
-### 3. Define Lot Configurations
-
-For a new parking lot, use the interactive space selector:
-
-```bash
-python src/space_selector.py --image parking_lot.jpg --lot-name "My Lot"
-```
-
-- Left-click drag: draw a parking space bounding box
-- Right-click: undo last space
-- Q: save and quit
-- R: reset all spaces
-
-Configurations are saved to `configs/lot_configs.json`.
-
-### 4. Run Detection
+### 3. Run Detection
 
 **Streamlit Web App** (interactive + live camera support):
 
@@ -130,30 +80,21 @@ streamlit run app.py
 **Command-line** (single image):
 
 ```bash
-python src/detector.py --image test.jpg --lot-name PUCPR_demo --output result.jpg
+python src/detector.py --image test.jpg --output result.jpg
 ```
-
-## Performance
-
-With the PKLot dataset (70/15/15 train/val/test split):
-
-- **Accuracy**: ~92–96%
-- **Precision**: 91–97% (per class)
-- **Recall**: 91–97% (per class)
-- **F1-Score**: 91–97% (per class)
-
-Performance varies by lot, weather condition, and image quality.
 
 ## API Reference
 
-### `ParkingClassifier`
+### `detect`
 
 ```python
-from src.classifier import get_classifier
+from src.detector import detect
+import numpy as np
+from PIL import Image
 
-classifier = get_classifier(threshold=0.7)
-label, confidence = classifier.predict(crop)  # Single crop
-results = classifier.predict_batch(crops)      # List of crops
+img = np.array(Image.open("parking.jpg").convert("RGB"))
+detections = detect(img, threshold=0.5)
+# [{'x': 12, 'y': 34, 'w': 60, 'h': 50, 'label': 'Empty', 'confidence': 0.91}, ...]
 ```
 
 ### `run_detection`
@@ -162,20 +103,14 @@ results = classifier.predict_batch(crops)      # List of crops
 from src.detector import run_detection
 from pathlib import Path
 
-annotated_img, stats = run_detection(
-    image_path=Path("parking.jpg"),
-    lot_name="PUCPR_demo",
-    threshold=0.7,
-    show_confidence=True
-)
-
+annotated_img, stats = run_detection(Path("parking.jpg"), threshold=0.5)
 print(stats)
 # Output: {'total': 20, 'free': 12, 'occupied': 8, 'occupancy_pct': 40.0}
 ```
 
 ## Notes
 
-- Requires Python 3.8+
-- TensorFlow 2.12+ with GPU support recommended for training
+- Requires Python 3.9–3.12 (Ultralytics/PyTorch do not yet support 3.13+)
+- A GPU speeds up training significantly; CPU is fine for local inference on single images/webcam frames
 - Camera mode requires `opencv-python` (headless version used for inference)
-- Default lot configurations (PUCPR_demo, UFPR_demo) are for testing only
+- Detection quality depends on how visually similar the input is to PKLot's top-down lot photos — it won't generalize reliably to very different camera angles or lot layouts
