@@ -170,7 +170,7 @@ def collect_samples(raw_dir: Path) -> dict:
     return collect_samples_xml(raw_dir)
 
 
-def sample_balanced(samples: dict, n_per_class: int = 2000, seed: int = 42) -> dict:
+def sample_balanced(samples: dict, n_per_class: int = 6000, seed: int = 42) -> dict:
     """Sample at most n_per_class items per class, uniformly."""
     rng = random.Random(seed)
     result = {}
@@ -222,7 +222,7 @@ def main():
     # Idempotency check
     n_empty = len(list(EMPTY_DIR.glob("*.jpg")))
     n_occupied = len(list(OCCUPIED_DIR.glob("*.jpg")))
-    if n_empty >= 1000 and n_occupied >= 1000:
+    if n_empty >= 3000 and n_occupied >= 3000:
         print(f"Dataset already prepared: {n_empty} empty, {n_occupied} occupied. Skipping.")
         return
 
@@ -236,8 +236,8 @@ def main():
     samples = collect_samples(DATA_RAW)
     print(f"  Found {len(samples['empty'])} empty, {len(samples['occupied'])} occupied space annotations")
 
-    print("Sampling balanced subset (max 2000 per class)...")
-    balanced = sample_balanced(samples, n_per_class=2000)
+    print("Sampling balanced subset (max 6000 per class)...")
+    balanced = sample_balanced(samples, n_per_class=6000)
 
     print("Cropping and saving space images...")
     counts = crop_and_save(balanced)
