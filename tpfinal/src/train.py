@@ -73,7 +73,7 @@ def build_model(img_size=IMG_SIZE):
         loss="binary_crossentropy",
         metrics=["accuracy"]
     )
-    return model
+    return model, base
 
 
 def plot_training_curves(history, save_path: Path):
@@ -152,7 +152,7 @@ def main():
     )
 
     print("\nBuilding model...")
-    model = build_model()
+    model, base = build_model()
 
     callbacks = [
         tf.keras.callbacks.EarlyStopping(
@@ -171,9 +171,11 @@ def main():
 
     # Fine-tune: unfreeze last 20 layers of base
     print("\nPhase 2: Fine-tuning last 20 layers...")
-    base = model.layers[1]  # MobileNetV2
+    base.trainable = True
     for layer in base.layers[-20:]:
         layer.trainable = True
+    for layer in base.layers[:-20]:
+        layer.trainable = False
 
     model.compile(
         optimizer=tf.keras.optimizers.Adam(1e-5),
