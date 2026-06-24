@@ -26,7 +26,7 @@ def main():
     model = YOLO("yolov8n.pt")
     results = model.train(
         data=str(data_yaml),
-        epochs=50,
+        epochs=40,
         imgsz=640,
         batch=16,
         patience=10,
