@@ -1,6 +1,7 @@
 import json
 
 import numpy as np
+import pytest
 
 from detect import crop_spot, load_spots, order_points, preprocess_crop
 
@@ -61,7 +62,7 @@ def test_classify_spot_below_threshold_is_free():
     is_occupied, probability = classify_spot(FakeModel(0.2), crop)
 
     assert is_occupied is False
-    assert probability == 0.2
+    assert probability == pytest.approx(0.2)
 
 
 def test_classify_spot_above_threshold_is_occupied():
@@ -70,7 +71,7 @@ def test_classify_spot_above_threshold_is_occupied():
     is_occupied, probability = classify_spot(FakeModel(0.9), crop)
 
     assert is_occupied is True
-    assert probability == 0.9
+    assert probability == pytest.approx(0.9)
 
 
 def test_build_summary_text_counts_free_spots():

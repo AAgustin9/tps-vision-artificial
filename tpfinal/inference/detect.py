@@ -50,8 +50,8 @@ def preprocess_crop(crop):
 def classify_spot(model, crop, threshold=0.5):
     """Clasifica un crop ya recortado: devuelve (is_occupied, probabilidad)."""
     batch = preprocess_crop(crop)
-    probability = model.predict(batch, verbose=0)[0][0]
-    return bool(probability >= threshold), probability
+    probability = float(model.predict(batch, verbose=0)[0][0])
+    return probability >= threshold, probability
 
 
 def build_summary_text(results):
