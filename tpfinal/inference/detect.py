@@ -45,3 +45,37 @@ def preprocess_crop(crop):
     rgb = cv2.cvtColor(crop, cv2.COLOR_BGR2RGB)
     normalized = rgb.astype(np.float32) / 255.0
     return np.expand_dims(normalized, axis=0)
+
+
+def classify_spot(model, crop, threshold=0.5):
+    """Clasifica un crop ya recortado: devuelve (is_occupied, probabilidad)."""
+    batch = preprocess_crop(crop)
+    probability = model.predict(batch, verbose=0)[0][0]
+    return bool(probability >= threshold), probability
+
+
+def build_summary_text(results):
+    """Construye el texto resumen, ej. '12/40 espacios libres'."""
+    total = len(results)
+    free = sum(1 for is_occupied in results if not is_occupied)
+    return f"{free}/{total} espacios libres"
+
+
+def draw_results(image, spots, results):
+    """Dibuja cada espacio (verde=libre, rojo=ocupado) y el resumen sobre una copia de la imagen."""
+    annotated = image.copy()
+    for spot, is_occupied in zip(spots, results):
+        points = np.array(spot["points"], dtype=np.int32)
+        color = (0, 0, 255) if is_occupied else (0, 255, 0)
+        cv2.polylines(annotated, [points], isClosed=True, color=color, thickness=2)
+        cv2.putText(
+            annotated, spot["id"], tuple(points[0]),
+            cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1,
+        )
+
+    summary = build_summary_text(results)
+    cv2.putText(
+        annotated, summary, (10, 30),
+        cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), 2,
+    )
+    return annotated

@@ -42,3 +42,54 @@ def test_preprocess_crop_normalizes_and_adds_batch_dim():
     assert batch.shape == (1, 224, 224, 3)
     assert batch.dtype == np.float32
     assert np.allclose(batch, 1.0)
+
+
+from detect import build_summary_text, classify_spot, draw_results
+
+
+class FakeModel:
+    def __init__(self, probability):
+        self.probability = probability
+
+    def predict(self, batch, verbose=0):
+        return np.array([[self.probability]], dtype=np.float32)
+
+
+def test_classify_spot_below_threshold_is_free():
+    crop = np.zeros((224, 224, 3), dtype=np.uint8)
+
+    is_occupied, probability = classify_spot(FakeModel(0.2), crop)
+
+    assert is_occupied is False
+    assert probability == 0.2
+
+
+def test_classify_spot_above_threshold_is_occupied():
+    crop = np.zeros((224, 224, 3), dtype=np.uint8)
+
+    is_occupied, probability = classify_spot(FakeModel(0.9), crop)
+
+    assert is_occupied is True
+    assert probability == 0.9
+
+
+def test_build_summary_text_counts_free_spots():
+    text = build_summary_text([True, False, False, True])
+
+    assert text == "2/4 espacios libres"
+
+
+def test_build_summary_text_all_occupied():
+    text = build_summary_text([True, True])
+
+    assert text == "0/2 espacios libres"
+
+
+def test_draw_results_returns_same_shape_image():
+    image = np.zeros((100, 100, 3), dtype=np.uint8)
+    spots = [{"id": "spot_1", "points": [[10, 10], [40, 10], [40, 40], [10, 40]]}]
+
+    annotated = draw_results(image, spots, [True])
+
+    assert annotated.shape == image.shape
+    assert not np.array_equal(annotated, image)  # algo se dibujo encima
