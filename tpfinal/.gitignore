@@ -1,0 +1,19 @@
+# Modelos entrenados (se descargan de Drive, no se versionan)
+*.h5
+*.keras
+saved_model/
+
+# Calibración real de un layout específico (solo se versiona spots.json.example)
+inference/spots.json
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Sistema
+.DS_Store
