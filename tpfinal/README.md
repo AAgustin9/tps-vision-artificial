@@ -113,4 +113,4 @@ print(stats)
 - Requires Python 3.9–3.12 (Ultralytics/PyTorch do not yet support 3.13+)
 - A GPU speeds up training significantly; CPU is fine for local inference on single images/webcam frames
 - Camera mode requires `opencv-python` (headless version used for inference)
-- Detection quality depends on how visually similar the input is to PKLot's top-down lot photos — it won't generalize reliably to very different camera angles or lot layouts
+- The app supports two workflows: `Automatic` line/grid detection for simple top-down lots, and `Manual Grid` calibration for reliable fixed-camera/difficult images. Manual Grid lets you define the parking area rows/columns, then the app classifies each calibrated slot as `Empty` or `Occupied` using pretrained YOLO (`yolov8n.pt`) plus visual texture/contrast. The old trained `models/parking_yolo.pt` model remains as a fallback when automatic slot lines cannot be found.
