@@ -11,7 +11,7 @@ from PIL import Image
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 from utils import MODEL_PATH, ensure_dirs
-from detector import get_model, detect, annotate_image
+from detector import get_car_model, detect, annotate_image, make_grid_slots, classify_slots
 
 st.set_page_config(page_title="Parking Space Detector", layout="wide", page_icon="P")
 
@@ -19,10 +19,8 @@ ensure_dirs()
 
 
 @st.cache_resource
-def load_model_cached():
-    if not MODEL_PATH.exists():
-        return None
-    return get_model()
+def load_vehicle_model_cached():
+    return get_car_model()
 
 
 # ── Sidebar ────────────────────────────────────────────────────────────────────
@@ -34,19 +32,27 @@ with st.sidebar:
 
     st.markdown("---")
 
-    threshold = st.slider("Confidence Threshold", 0.25, 0.95, 0.50, 0.05)
+    threshold = st.slider("Confidence Threshold", 0.05, 0.95, 0.35, 0.05)
     show_conf = st.toggle("Show Confidence Labels", value=True)
+    detection_strategy = st.radio(
+        "Detection Strategy",
+        ["Automatic", "Manual Grid"],
+        help="Use Manual Grid when automatic line detection duplicates or hallucinates spaces."
+    )
 
 
 # ── Model guard ────────────────────────────────────────────────────────────────
-model = load_model_cached()
-if model is None:
-    st.error(
-        f"**Model not found** at `{MODEL_PATH}`.\n\n"
-        "Train it first (see COLAB_GUIDE.md):\n"
-        "```\npython src/convert_to_yolo.py\npython src/train_yolo.py\n```"
-    )
+try:
+    load_vehicle_model_cached()
+except Exception as exc:
+    st.error(f"Could not load the pretrained vehicle detector: {exc}")
     st.stop()
+
+if not MODEL_PATH.exists():
+    st.sidebar.warning(
+        f"Optional trained parking model not found at `{MODEL_PATH}`. "
+        "The app will use line-based slot detection + pretrained vehicle detection."
+    )
 
 
 # ── Mode 1: Upload Image ───────────────────────────────────────────────────────
@@ -59,11 +65,45 @@ if mode == "Upload Image":
         img_pil = Image.open(uploaded).convert("RGB")
         img_np = np.array(img_pil)
 
-        detections = detect(img_np, threshold)
+        if detection_strategy == "Manual Grid":
+            h, w = img_np.shape[:2]
+            st.info(
+                "Manual Grid is the reliable mode for fixed cameras or difficult images: "
+                "adjust the rectangle so it covers the parking row/area, set rows/columns, "
+                "then occupancy is classified inside those calibrated spaces."
+            )
+            with st.expander("Manual grid calibration", expanded=True):
+                c1, c2, c3 = st.columns(3)
+                with c1:
+                    grid_cols = st.number_input("Columns / spaces per row", 1, 50, 5, 1)
+                    grid_rows = st.number_input("Rows", 1, 10, 1, 1)
+                with c2:
+                    grid_x = st.slider("Grid X", 0, max(0, w - 1), int(w * 0.08))
+                    grid_y = st.slider("Grid Y", 0, max(0, h - 1), int(h * 0.05))
+                with c3:
+                    max_grid_w = max(1, w - grid_x)
+                    max_grid_h = max(1, h - grid_y)
+                    grid_w = st.slider("Grid Width", 1, max_grid_w, min(max_grid_w, max(1, int(w * 0.85))))
+                    grid_h = st.slider("Grid Height", 1, max_grid_h, min(max_grid_h, max(1, int(h * 0.65))))
+
+            slots = make_grid_slots(img_np.shape, grid_x, grid_y, grid_w, grid_h, grid_cols, grid_rows)
+            detections = classify_slots(img_np, slots)
+        else:
+            detections = detect(img_np, threshold)
 
         if not detections:
-            st.warning("No parking spaces detected in this image.")
+            st.warning("No parking spaces detected in this image. Try Manual Grid mode for this image/camera.")
             st.stop()
+
+        used_manual = any(d.get("source") == "manual+occupancy" for d in detections)
+        used_hybrid = any(d.get("source") in {"slot+car", "slot+visual"} for d in detections)
+        used_fallback = any(d.get("source") == "line-fallback" for d in detections)
+        if used_manual:
+            st.success("Using calibrated manual grid + occupancy detection.")
+        elif used_hybrid:
+            st.info("Using painted-line slot detection + pretrained vehicle detection.")
+        elif used_fallback:
+            st.info("Using painted-line fallback detection for visible empty stalls.")
 
         annotated = annotate_image(img_np.copy(), detections, show_conf)
 
@@ -137,8 +177,9 @@ elif mode == "Live Camera":
 
                     free = sum(1 for d in detections if d["label"] == "Empty")
                     occ = len(detections) - free
+                    fallback_note = " | `slot+car/visual`" if any(d.get("source") in {"slot+car", "slot+visual"} for d in detections) else " | `line fallback`" if any(d.get("source") == "line-fallback" for d in detections) else ""
                     stats_placeholder.markdown(
-                        f"`Free: {free}` | `Occupied: {occ}` | `Total: {len(detections)}`"
+                        f"`Free: {free}` | `Occupied: {occ}` | `Total: {len(detections)}`{fallback_note}"
                     )
                 else:
                     frame_placeholder.image(frame_rgb, channels="RGB", use_container_width=True)
