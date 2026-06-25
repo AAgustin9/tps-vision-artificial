@@ -30,7 +30,10 @@ def get_model(model_path: Path = MODEL_PATH):
 def detect(image_rgb: np.ndarray, threshold: float = 0.5, model_path: Path = MODEL_PATH) -> list:
     """Run detection on an RGB image. Returns list of dicts with box, label, confidence."""
     model = get_model(model_path)
-    result = model.predict(image_rgb, conf=threshold, verbose=False)[0]
+    # Ultralytics treats raw numpy array inputs as BGR (OpenCV convention) and
+    # flips them to RGB internally, so feed it BGR to undo that correctly.
+    image_bgr = cv2.cvtColor(image_rgb, cv2.COLOR_RGB2BGR)
+    result = model.predict(image_bgr, conf=threshold, verbose=False)[0]
 
     detections = []
     for box in result.boxes:
