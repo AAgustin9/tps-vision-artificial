@@ -79,3 +79,71 @@ def draw_results(image, spots, results):
         cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), 2,
     )
     return annotated
+
+
+import argparse
+import os
+import sys
+
+
+def load_model_from_path(model_path):
+    """Carga el modelo Keras forzando ejecucion en CPU (sin GPU disponible)."""
+    os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+    from tensorflow import keras
+
+    return keras.models.load_model(model_path)
+
+
+def run(image_path, spots_path, model_path, output_path=None, model_loader=load_model_from_path):
+    """Orquesta: lee imagen, carga spots y modelo, clasifica cada espacio y dibuja el resultado.
+
+    Devuelve (imagen_anotada, texto_resumen). Si output_path es provisto, guarda la imagen.
+    """
+    image = cv2.imread(image_path)
+    if image is None:
+        print(f"Error: no se pudo leer la imagen '{image_path}'", file=sys.stderr)
+        sys.exit(1)
+
+    spots = load_spots(spots_path)
+    model = model_loader(model_path)
+
+    results = []
+    for spot in spots:
+        crop = crop_spot(image, spot["points"])
+        is_occupied, _ = classify_spot(model, crop)
+        results.append(is_occupied)
+
+    annotated = draw_results(image, spots, results)
+    summary = build_summary_text(results)
+
+    if output_path:
+        cv2.imwrite(output_path, annotated)
+
+    return annotated, summary
+
+
+def parse_args(argv=None):
+    parser = argparse.ArgumentParser(
+        description="Clasifica cada espacio de estacionamiento de una imagen como libre/ocupado."
+    )
+    parser.add_argument("--image", required=True, help="Ruta a la imagen del estacionamiento a analizar")
+    parser.add_argument("--spots", required=True, help="Ruta al archivo spots.json calibrado")
+    parser.add_argument("--model", required=True, help="Ruta al modelo .h5 entrenado")
+    parser.add_argument("--output", default=None, help="Ruta de la imagen resultado (default: <imagen>_resultado.jpg)")
+    return parser.parse_args(argv)
+
+
+def main(argv=None):
+    args = parse_args(argv)
+    output_path = args.output or f"{os.path.splitext(args.image)[0]}_resultado.jpg"
+
+    annotated, summary = run(args.image, args.spots, args.model, output_path=output_path, model_loader=load_model_from_path)
+
+    print(summary)
+    cv2.imshow("Resultado", annotated)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
+
+if __name__ == "__main__":
+    main()
