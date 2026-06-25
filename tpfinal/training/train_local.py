@@ -31,7 +31,10 @@ parser.add_argument("--epochs",    type=int, default=20)
 parser.add_argument("--batch",     type=int, default=32)
 parser.add_argument("--lr",        type=float, default=1e-4)
 parser.add_argument("--img-size",  type=int, default=96, help="Lado de la imagen cuadrada (px)")
-parser.add_argument("--seed",      type=int, default=42)
+parser.add_argument("--seed",       type=int, default=42)
+parser.add_argument("--max-images", type=int, default=None,
+                    help="Limitar el numero de imagenes fuente usadas (ej: 2000). "
+                         "Reduce el dataset manteniendo la proporcion de clases.")
 parser.add_argument("--no-mixed",  action="store_true", help="Desactivar mixed precision (float16)")
 args = parser.parse_args()
 
@@ -128,6 +131,33 @@ pairs = collect_pairs(dataset_path)
 uses_coco = len(pairs) > 0 and pairs[0][1] is not None
 print(f"Total patches: {len(pairs)} | COCO mode: {uses_coco}")
 assert len(pairs) > 0, "No se encontraron pares. Revisa --dataset o --zip."
+
+# ── Subsampling por imagen fuente ─────────────────────────────────────────────
+if args.max_images:
+    random.seed(RANDOM_SEED)
+    # Agrupar anotaciones por (split, imagen fuente)
+    by_split_image = defaultdict(list)
+    for pair in pairs:
+        by_split_image[(pair[3], pair[0])].append(pair)
+
+    # Por cada split, samplear proporcionalmente al tamaño original
+    split_totals = defaultdict(int)
+    for (split, _) in by_split_image:
+        split_totals[split] += 1
+    total_imgs = sum(split_totals.values())
+
+    sampled = []
+    for split in ["train", "valid", "test"]:
+        n_split = split_totals[split]
+        n_sample = max(1, round(args.max_images * n_split / total_imgs))
+        img_keys = [k for k in by_split_image if k[0] == split]
+        chosen = random.sample(img_keys, min(n_sample, len(img_keys)))
+        for key in chosen:
+            sampled.extend(by_split_image[key])
+
+    pairs = sampled
+    unique_imgs = len({p[0] for p in pairs})
+    print(f"Subsampling: {unique_imgs} imagenes fuente → {len(pairs)} patches")
 
 # ── Split ─────────────────────────────────────────────────────────────────────
 

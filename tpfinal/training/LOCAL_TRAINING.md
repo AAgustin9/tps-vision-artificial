@@ -99,6 +99,14 @@ python training/train_local.py \
     --output ./training/output
 ```
 
+### Run rápido (~30 min en GTX 1650) usando solo 2000 imágenes fuente
+```bash
+python training/train_local.py \
+    --zip PKLot.zip \
+    --output ./training/output \
+    --max-images 2000
+```
+
 ### Con parámetros personalizados
 ```bash
 python training/train_local.py \
@@ -107,7 +115,8 @@ python training/train_local.py \
     --epochs 30 \
     --batch 64 \
     --img-size 96 \
-    --lr 0.0001
+    --lr 0.0001 \
+    --max-images 2000
 ```
 
 | Argumento | Default | Descripción |
@@ -119,6 +128,7 @@ python training/train_local.py \
 | `--batch` | 32 | Batch size (bajar a 16 si hay OOM) |
 | `--img-size` | 96 | Tamaño de imagen cuadrada en píxeles |
 | `--lr` | 1e-4 | Learning rate inicial |
+| `--max-images` | None (todos) | Limita las imágenes fuente usadas. 2000 ≈ 30 min en GTX 1650 |
 | `--no-mixed` | False | Desactiva mixed precision float16 |
 
 ---
