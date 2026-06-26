@@ -75,8 +75,8 @@ def draw_results(image, spots, results):
 
     summary = build_summary_text(results)
     cv2.putText(
-        annotated, summary, (10, 30),
-        cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), 2,
+        annotated, summary, (10, 20),
+        cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 2,
     )
     return annotated
 
