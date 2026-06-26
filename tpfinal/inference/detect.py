@@ -107,9 +107,13 @@ def run(image_path, spots_path, model_path, output_path=None, model_loader=load_
     spots = load_spots(spots_path)
     model = model_loader(model_path)
 
+    # Leer el tamaño de entrada esperado por el modelo (puede ser 96 o 224 segun como fue entrenado)
+    _, h, w, _ = model.input_shape
+    input_size = (w, h)
+
     results = []
     for spot in spots:
-        crop = crop_spot(image, spot["points"])
+        crop = crop_spot(image, spot["points"], output_size=input_size)
         is_occupied, _ = classify_spot(model, crop)
         results.append(is_occupied)
 

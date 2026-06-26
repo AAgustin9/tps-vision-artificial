@@ -1,3 +1,5 @@
 opencv-python==4.10.0.84
-tensorflow-cpu==2.17.0
 numpy==1.26.4
+# En Mac Apple Silicon usar: pip install tensorflow-macos tensorflow-metal
+# En Linux/Windows con CPU:   pip install tensorflow-cpu==2.17.0
+# En Linux/Windows con GPU:   pip install tensorflow[and-cuda]>=2.17.0
