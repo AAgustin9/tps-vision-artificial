@@ -47,7 +47,7 @@ def preprocess_crop(crop):
     return np.expand_dims(normalized, axis=0)
 
 
-def classify_spot(model, crop, threshold=0.5):
+def classify_spot(model, crop, threshold=0.98):
     """Clasifica un crop ya recortado: devuelve (is_occupied, probabilidad)."""
     batch = preprocess_crop(crop)
     probability = float(model.predict(batch, verbose=0)[0][0])
